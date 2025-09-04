@@ -1,4 +1,4 @@
-// servidor.js - RELIANCE WhatsApp Bot para Render (CORREGIDO)
+// servidor.js - RELIANCE WhatsApp Bot con QR FUNCIONANDO
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const express = require('express');
@@ -8,7 +8,7 @@ app.use(express.json());
 
 console.log('🚀 Iniciando RELIANCE Bot en Render...');
 
-// Configuración especial para Render
+// Configuración para Render
 const client = new Client({
     authStrategy: new LocalAuth({
         clientId: "reliance-render-bot"
@@ -25,14 +25,8 @@ const client = new Client({
             '--disable-gpu',
             '--disable-web-security',
             '--disable-features=VizDisplayCompositor',
-            '--run-all-compositor-stages-before-draw',
-            '--disable-background-timer-throttling',
-            '--disable-renderer-backgrounding',
-            '--disable-backgrounding-occluded-windows',
-            '--disable-ipc-flooding-protection',
-            '--single-process' // CLAVE para Render
-        ],
-        executablePath: process.env.CHROME_BIN || undefined
+            '--single-process'
+        ]
     }
 });
 
@@ -43,10 +37,10 @@ let connectionStatus = 'CONNECTING';
 // Eventos del cliente
 client.on('qr', (qr) => {
     console.log('✅ QR Code generado exitosamente!');
+    console.log('QR Data:', qr.substring(0, 50) + '...');
     qrString = qr;
     connectionStatus = 'WAITING_QR';
-    // Mostrar QR en consola también
-    console.log('QR para conectar:');
+    // Mostrar QR en consola
     qrcode.generate(qr, {small: true});
 });
 
@@ -114,20 +108,26 @@ app.get('/status', (req, res) => {
     });
 });
 
-// Endpoint para QR mejorado
+// Endpoint QR CORREGIDO - usando servicio externo
 app.get('/qr', (req, res) => {
     if (qrString) {
+        // Codificar QR para URL
+        const qrEncoded = encodeURIComponent(qrString);
+        
         res.send(`
         <!DOCTYPE html>
         <html>
         <head>
             <title>Conectar WhatsApp - RELIANCE S.A.</title>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <style>
                 body { 
                     font-family: Arial, sans-serif; 
                     text-align: center; 
                     padding: 20px;
                     background: #f5f5f5;
+                    margin: 0;
                 }
                 .container {
                     max-width: 500px;
@@ -137,86 +137,268 @@ app.get('/qr', (req, res) => {
                     border-radius: 10px;
                     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
                 }
-                h2 { color: #0066cc; }
-                #qr { margin: 20px 0; }
+                h2 { 
+                    color: #0066cc; 
+                    margin-bottom: 10px;
+                }
+                .company {
+                    color: #666;
+                    margin-bottom: 30px;
+                    font-size: 16px;
+                }
+                .qr-container {
+                    margin: 30px 0;
+                    padding: 20px;
+                    background: #fafafa;
+                    border-radius: 10px;
+                    border: 2px solid #e0e0e0;
+                }
+                .qr-image {
+                    max-width: 280px;
+                    height: 280px;
+                    margin: 0 auto;
+                    display: block;
+                    border: 3px solid #0066cc;
+                    border-radius: 10px;
+                }
                 .status { 
                     background: #e7f3ff; 
-                    padding: 10px; 
-                    border-radius: 5px;
+                    padding: 15px; 
+                    border-radius: 8px;
+                    margin: 20px 0;
+                    border-left: 4px solid #0066cc;
+                }
+                .steps {
+                    background: #f0f8ff;
+                    padding: 20px;
+                    border-radius: 8px;
+                    margin: 20px 0;
+                    text-align: left;
+                }
+                .steps ol {
                     margin: 10px 0;
+                    padding-left: 20px;
+                }
+                .steps li {
+                    margin: 8px 0;
+                    font-size: 14px;
+                }
+                .refresh-info {
+                    color: #666;
+                    font-size: 12px;
+                    margin-top: 20px;
+                }
+                .loading {
+                    color: #0066cc;
+                    font-weight: bold;
                 }
             </style>
         </head>
         <body>
             <div class="container">
                 <h2>🔗 Conectar WhatsApp</h2>
-                <p><strong>RELIANCE S.A. - Bot de Cumpleaños</strong></p>
+                <div class="company"><strong>RELIANCE S.A.</strong> - Bot de Cumpleaños</div>
                 
                 <div class="status">
-                    📱 Escanea este código QR con tu WhatsApp
+                    📱 <strong>Escanea este código QR con tu WhatsApp</strong>
                 </div>
                 
-                <div id="qr"></div>
-                
-                <div class="status">
-                    <strong>Pasos:</strong><br>
-                    1. Abre WhatsApp en tu teléfono<br>
-                    2. Ve a Menú → Dispositivos Vinculados<br>
-                    3. Toca "Vincular un dispositivo"<br>
-                    4. Escanea este código QR<br>
+                <div class="qr-container">
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${qrEncoded}" 
+                         alt="QR Code WhatsApp" 
+                         class="qr-image"
+                         onerror="this.src='data:image/svg+xml,<svg xmlns=\\"http://www.w3.org/2000/svg\\" width=\\"280\\" height=\\"280\\"><rect width=\\"280\\" height=\\"280\\" fill=\\"%23f0f0f0\\"/><text x=\\"140\\" y=\\"140\\" text-anchor=\\"middle\\" fill=\\"red\\">Error QR</text></svg>'"
+                    />
                 </div>
                 
-                <p><small>Una vez conectado, esta página se actualizará automáticamente</small></p>
+                <div class="steps">
+                    <strong>📋 Pasos para conectar:</strong>
+                    <ol>
+                        <li>Abre <strong>WhatsApp</strong> en tu teléfono</li>
+                        <li>Ve a <strong>Menú (⋮)</strong> → <strong>Dispositivos Vinculados</strong></li>
+                        <li>Toca <strong>"Vincular un dispositivo"</strong></li>
+                        <li>Escanea este código QR</li>
+                    </ol>
+                </div>
+                
+                <div class="refresh-info">
+                    <div class="loading">⏳ Verificando conexión cada 5 segundos...</div>
+                    <small>Una vez conectado, esta página se actualizará automáticamente</small>
+                </div>
                 
                 <script>
-                    // Auto-refresh cada 5 segundos para verificar conexión
+                    // Auto-refresh cada 5 segundos
                     setTimeout(() => {
+                        console.log('Verificando conexión...');
                         window.location.reload();
                     }, 5000);
+                    
+                    // Mostrar tiempo transcurrido
+                    let seconds = 0;
+                    setInterval(() => {
+                        seconds += 1;
+                        const minutes = Math.floor(seconds / 60);
+                        const secs = seconds % 60;
+                        const timeStr = minutes > 0 ? minutes + 'm ' + secs + 's' : secs + 's';
+                        document.title = 'Conectar WhatsApp (' + timeStr + ') - RELIANCE S.A.';
+                    }, 1000);
                 </script>
             </div>
-            
-            <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-            <script>
-                QRCode.toCanvas(document.createElement('canvas'), '${qrString}', function (error, canvas) {
-                    if (error) {
-                        console.error(error);
-                        document.getElementById('qr').innerHTML = '<p style="color:red;">Error generando QR</p>';
-                    } else {
-                        canvas.style.width = '300px';
-                        canvas.style.height = '300px';
-                        canvas.style.border = '2px solid #ddd';
-                        document.getElementById('qr').appendChild(canvas);
-                    }
-                });
-            </script>
         </body>
         </html>
         `);
     } else if (isReady) {
         res.send(`
+        <!DOCTYPE html>
         <html>
-        <head><title>WhatsApp Conectado</title></head>
-        <body style="text-align:center; font-family:Arial; padding:50px;">
-            <h2 style="color:green;">✅ WhatsApp Conectado Exitosamente!</h2>
-            <p><strong>RELIANCE S.A. Bot</strong> está listo para enviar cumpleaños</p>
-            <p><a href="/status" style="background:#0066cc; color:white; padding:10px 20px; text-decoration:none; border-radius:5px;">Ver Estado</a></p>
-            <p><small>Última conexión: ${new Date().toLocaleString('es-EC')}</small></p>
+        <head>
+            <title>WhatsApp Conectado - RELIANCE S.A.</title>
+            <meta charset="UTF-8">
+            <style>
+                body { 
+                    font-family: Arial, sans-serif; 
+                    text-align: center; 
+                    padding: 50px;
+                    background: #f0f8ff;
+                }
+                .success-container {
+                    max-width: 500px;
+                    margin: 0 auto;
+                    background: white;
+                    padding: 40px;
+                    border-radius: 15px;
+                    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+                }
+                .success-icon {
+                    font-size: 60px;
+                    margin-bottom: 20px;
+                }
+                h2 { 
+                    color: #28a745; 
+                    margin-bottom: 15px;
+                }
+                .company {
+                    color: #0066cc;
+                    font-size: 18px;
+                    font-weight: bold;
+                    margin-bottom: 20px;
+                }
+                .info-box {
+                    background: #d4edda;
+                    padding: 20px;
+                    border-radius: 8px;
+                    margin: 20px 0;
+                    border-left: 4px solid #28a745;
+                }
+                .action-buttons {
+                    margin: 30px 0;
+                }
+                .btn {
+                    display: inline-block;
+                    padding: 12px 24px;
+                    margin: 5px;
+                    text-decoration: none;
+                    border-radius: 6px;
+                    font-weight: bold;
+                    transition: background-color 0.3s;
+                }
+                .btn-primary {
+                    background: #0066cc;
+                    color: white;
+                }
+                .btn-primary:hover {
+                    background: #0052a3;
+                }
+                .btn-secondary {
+                    background: #6c757d;
+                    color: white;
+                }
+                .timestamp {
+                    color: #666;
+                    font-size: 12px;
+                    margin-top: 20px;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="success-container">
+                <div class="success-icon">✅</div>
+                <h2>WhatsApp Conectado Exitosamente!</h2>
+                <div class="company">RELIANCE S.A.</div>
+                
+                <div class="info-box">
+                    <strong>🎂 Bot de Cumpleaños Activo</strong><br>
+                    El sistema está listo para enviar felicitaciones automáticamente
+                </div>
+                
+                <div class="action-buttons">
+                    <a href="/status" class="btn btn-primary">📊 Ver Estado</a>
+                    <a href="/" class="btn btn-secondary">🏠 Inicio</a>
+                </div>
+                
+                <div class="timestamp">
+                    <strong>Conectado:</strong> ${new Date().toLocaleString('es-EC', { timeZone: 'America/Guayaquil' })}
+                </div>
+            </div>
         </body>
         </html>
         `);
     } else {
         res.send(`
+        <!DOCTYPE html>
         <html>
         <head>
-            <title>Conectando WhatsApp...</title>
+            <title>Inicializando WhatsApp - RELIANCE S.A.</title>
+            <meta charset="UTF-8">
             <meta http-equiv="refresh" content="3">
+            <style>
+                body { 
+                    font-family: Arial, sans-serif; 
+                    text-align: center; 
+                    padding: 50px;
+                    background: #f8f9fa;
+                }
+                .loading-container {
+                    max-width: 400px;
+                    margin: 0 auto;
+                    background: white;
+                    padding: 40px;
+                    border-radius: 10px;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                }
+                .spinner {
+                    border: 4px solid #f3f3f3;
+                    border-top: 4px solid #0066cc;
+                    border-radius: 50%;
+                    width: 50px;
+                    height: 50px;
+                    animation: spin 1s linear infinite;
+                    margin: 20px auto;
+                }
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+                h2 { color: #0066cc; }
+                .status-info {
+                    background: #fff3cd;
+                    padding: 15px;
+                    border-radius: 6px;
+                    margin: 20px 0;
+                    border-left: 4px solid #ffc107;
+                }
+            </style>
         </head>
-        <body style="text-align:center; font-family:Arial; padding:50px;">
-            <h2>⏳ Inicializando WhatsApp...</h2>
-            <p>Estado: ${connectionStatus}</p>
-            <p>Esperando QR code...</p>
-            <p><small>Esta página se actualiza automáticamente</small></p>
+        <body>
+            <div class="loading-container">
+                <h2>⏳ Inicializando WhatsApp...</h2>
+                <div class="spinner"></div>
+                <div class="status-info">
+                    <strong>Estado:</strong> ${connectionStatus}<br>
+                    <strong>Proceso:</strong> Conectando con WhatsApp Web
+                </div>
+                <p><small>Esta página se actualiza automáticamente cada 3 segundos</small></p>
+            </div>
         </body>
         </html>
         `);
